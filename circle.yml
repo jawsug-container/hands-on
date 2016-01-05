@@ -1,0 +1,19 @@
+machine:
+  timezone:
+    Asia/Tokyo
+
+dependencies:
+    override:
+        - sudo pip install awscli
+    post:
+        - aws configure set region ap-northeast-1
+
+deployment:
+  production:
+    branch: master
+    commands:
+      - aws s3 sync html/ s3://handson.jawsug-container.org/ --delete
+  staging:
+    branch: staging
+    commands:
+      - aws s3 sync html/ s3://handson-staging.jawsug-container.org/ --delete
