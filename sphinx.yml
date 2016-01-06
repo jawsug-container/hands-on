@@ -1,0 +1,17 @@
+clean:
+  image: ddidier/ndd-docker-sphinx
+  command: make clean
+  volumes:
+    - ./doc:/doc
+
+html:
+  image: ddidier/ndd-docker-sphinx
+  command: make html
+  volumes:
+    - ./doc:/doc
+
+clean-html:
+  image: ddidier/ndd-docker-sphinx
+  command: /bin/sh -c "make clean && make html"
+  volumes:
+    - ./doc:/doc

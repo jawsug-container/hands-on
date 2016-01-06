@@ -1,19 +1,32 @@
 machine:
   timezone:
     Asia/Tokyo
+  services:
+    - docker
 
 dependencies:
-    override:
-        - sudo pip install awscli
-    post:
-        - aws configure set region ap-northeast-1
+  cache_directories:
+    - "~/docker"
+  pre:
+    - pip install awscli
+    - docker info
+  override:
+    - if [[ -e ~/docker/image.tar ]]; then docker load -i ~/docker/image.tar; fi
+    - docker pull ddidier/ndd-docker-sphinx
+    - mkdir -p ~/docker; docker save ddidier/ndd-docker-sphinx > ~/docker/image.tar
+  post:
+    - aws configure set region ap-northeast-1
+
+test:
+  override:
+    - docker run -v $(pwd)/doc:/doc ddidier/ndd-docker-sphinx /bin/sh -c "make clean && make html"
 
 deployment:
   production:
+    tag: /v[0-9]+(\.[0-9]+)*/
+    commands:
+      - aws s3 sync doc/_build/ s3://handson.jawsug-container.org/ --delete
+  staging:
     branch: master
     commands:
-      - aws s3 sync html/ s3://handson.jawsug-container.org/ --delete
-  staging:
-    branch: staging
-    commands:
-      - aws s3 sync html/ s3://handson-staging.jawsug-container.org/ --delete
+      - aws s3 sync doc/_build/ s3://handson-staging.jawsug-container.org/ --delete

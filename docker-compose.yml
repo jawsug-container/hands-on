@@ -1,0 +1,7 @@
+web:
+  image: nginx
+  ports:
+    - 80:80
+  volumes:
+    - ./doc/_build:/usr/share/nginx
+  container_name: web
