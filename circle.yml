@@ -23,10 +23,9 @@ test:
 
 deployment:
   production:
-    tag: /v[0-9]+(\.[0-9]+)*/
-    commands:
-      - aws s3 sync doc/_build/ s3://handson.jawsug-container.org/ --delete
-  staging:
     branch: master
     commands:
-      - aws s3 sync doc/_build/ s3://handson-staging.jawsug-container.org/ --delete
+      - aws s3 sync doc/_build/html/ s3://handson.jawsug-container.org/ --delete
+  staging:
+    commands:
+      - aws s3 sync doc/_build/html/ s3://handson-staging.jawsug-container.org/ --delete
