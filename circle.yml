@@ -1,6 +1,4 @@
 machine:
-  timezone:
-    Asia/Tokyo
   services:
     - docker
 
@@ -10,6 +8,7 @@ dependencies:
   pre:
     - pip install awscli
     - docker info
+    - docker version
   override:
     - if [[ -e ~/docker/image.tar ]]; then docker load -i ~/docker/image.tar; fi
     - docker pull ddidier/ndd-docker-sphinx
