@@ -28,7 +28,7 @@ docker-compose -f sphinx.yml run clean-html
 
 大歓迎です！
 
-1. Forkします ([https://github.com/jawsug-container/hands-on.git/fork](https://github.com/jawsug-container/hands-on.git/fork))
+1. Forkします ([https://github.com/jawsug-container/hands-on/fork](https://github.com/jawsug-container/hands-on/fork))
 2. featureブランチを作ります
 3. 変更を commitしてください
 4. ローカルの変更を masterブランチに対し rebaseします
