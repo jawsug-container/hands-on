@@ -23,7 +23,7 @@ test:
 
 deployment:
   production:
-    tag: /v[0-9]+(\.[0-9]+)*/
+    branch: release
     commands:
       - aws s3 sync doc/_build/html/ s3://handson.jawsug-container.org/ --delete
   staging:
