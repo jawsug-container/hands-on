@@ -14,7 +14,7 @@ dependencies:
 
 test:
   override:
-    - docker run -v $(pwd)/doc:/doc pottava/sphinx /bin/sh -c "make clean && make html"
+    - docker run -v $(pwd)/doc:/doc -w /doc pottava/sphinx /bin/sh -c "make clean && make html"
 
 deployment:
   production:
