@@ -1,17 +1,20 @@
 clean:
-  image: ddidier/ndd-docker-sphinx
+  image: pottava/sphinx
   command: make clean
   volumes:
     - ./doc:/doc
+  working_dir: /doc
 
 html:
-  image: ddidier/ndd-docker-sphinx
+  image: pottava/sphinx
   command: make html
   volumes:
     - ./doc:/doc
+  working_dir: /doc
 
 clean-html:
-  image: ddidier/ndd-docker-sphinx
+  image: pottava/sphinx
   command: /bin/sh -c "make clean && make html"
   volumes:
     - ./doc:/doc
+  working_dir: /doc
