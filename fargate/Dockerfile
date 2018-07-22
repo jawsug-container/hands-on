@@ -44,6 +44,10 @@ RUN apk --no-cache add bash tini \
     && find / -type d -name \__pycache__ -depth -exec rm -rf {} \; \
     && rm -rf /root/.cache
 
+# Configure git to use CodeCommit as git repositories
+RUN git config --global credential.helper '!aws codecommit credential-helper $@' \
+    && git config --global credential.UseHttpPath true
+
 WORKDIR /root/notebook
 ADD config/jupyter_notebook.py /root/.jupyter/jupyter_notebook_config.py
 ADD notebooks /root/notebook

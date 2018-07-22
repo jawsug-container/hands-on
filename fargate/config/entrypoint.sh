@@ -13,6 +13,8 @@ function usage() {
       AWS_ACCESS_KEY_ID      AWS アクセスキー
       AWS_SECRET_ACCESS_KEY  AWS シークレットキー
       AWS_DEFAULT_REGION     AWS リージョン名
+      GIT_USER_NAME          git ユーザー名
+      GIT_EMAIL_ADDRESS      git ユーザーメールアドレス
 
   必要なホストからのマウント:
       /var/run/docker.sock   Docker の通信のため
@@ -23,6 +25,7 @@ function usage() {
       $ AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
       $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \\
            -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \\
+           -e GIT_USER_NAME -e GIT_EMAIL_ADDRESS \\
            -v /var/run/docker.sock:/var/run/docker.sock \\
            -v $(pwd):/root/config \\
            -p 8080:8080 jawsug/container:fargate-handson
@@ -50,6 +53,14 @@ if [ "${AWS_SECRET_ACCESS_KEY}" = "" ]; then
 fi
 if [ "${AWS_DEFAULT_REGION}" = "" ]; then
   echo "環境変数に AWS_DEFAULT_REGION が指定されていません"
+  exit 1
+fi
+if [ "${GIT_USER_NAME}" = "" ]; then
+  echo "環境変数に GIT_USER_NAME が指定されていません"
+  exit 1
+fi
+if [ "${GIT_EMAIL_ADDRESS}" = "" ]; then
+  echo "環境変数に GIT_EMAIL_ADDRESS が指定されていません"
   exit 1
 fi
 
@@ -84,6 +95,11 @@ cat << EOT
   Region:    ${AWS_DEFAULT_REGION}
   IAM User:  $( echo "${identity}" | jq -r '.Arn' )
   AccessKey: $( echo "${identity}" | jq -r '.UserId' )
+
+  [ Git 情報 ]
+
+  UserName:  ${GIT_USER_NAME}
+  Email:     ${GIT_EMAIL_ADDRESS}
 
   [ Docker 情報 ]
 

@@ -6,6 +6,9 @@ Outputs:
     Description: CodeCommit clone URL for HTTPS
     Value: !GetAtt CodeRepository.CloneUrlHttp
 
+  CodePipeline:
+    Value: !Ref CodePipeline
+
   PublicSubnet1:
     Value: !Ref PublicSubnet1
     Export:
@@ -33,7 +36,7 @@ Metadata:
           default: Basic Configurations
         Parameters:
           - ProjectID
-          - FargateStackName
+          - EdgeStackName
       - Label:
           default: Pipeline Configurations
         Parameters:
@@ -46,7 +49,7 @@ Parameters:
   S3BucketName:
     Type: String
 
-  FargateStackName:
+  EdgeStackName:
     Type: String
 
 Resources:
@@ -127,41 +130,14 @@ Resources:
         Type: LINUX_CONTAINER
         Image: aws/codebuild/docker:17.09.0
         EnvironmentVariables:
+          - Name: PROJECT_ID
+            Value: !Ref ProjectID
           - Name: REPOSITORY_URI
             Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${DockerRepository}
-          - Name: REPOSITORY_NAME
-            Value: !GetAtt CodeRepository.Name
-          - Name: REPOSITORY_BRANCH
-            Value: master
       Artifacts:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
-        BuildSpec: !Sub
-          - |
-            ---
-            version: 0.2
-            phases:
-              install:
-                commands:
-                  - apt-get update
-                  - apt-get -y install python-pip
-                  - pip install --upgrade python
-                  - pip install --upgrade awscli
-              pre_build:
-                  commands:
-                  - TAG="$REPOSITORY_BRANCH-$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 7)"
-                  - $(aws ecr get-login --no-include-email)
-              build:
-                commands:
-                  - docker build --tag $REPOSITORY_URI:$TAG .
-              post_build:
-                commands:
-                  - docker push $REPOSITORY_URI:$TAG
-                  - printf '{"name": "${ServiceName}", "imageUri": "%s"}' $REPOSITORY_URI:$TAG > build.json
-            artifacts:
-              files: build.json
-          - ServiceName: !GetAtt CodeRepository.Name
 
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
@@ -179,6 +155,15 @@ Resources:
               - Effect: Allow
                 Action:
                   - iam:PassRole
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:CreateStack
+                  - cloudformation:CreateUploadBucket
+                  - cloudformation:DeleteStack
+                  - cloudformation:Describe*
+                  - cloudformation:List*
+                  - cloudformation:UpdateStack
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:ExecuteChangeSet
                 Resource: "*"
               - Effect: Allow
                 Action:
@@ -223,10 +208,13 @@ Resources:
               - Effect: Allow
                 Action:
                   - iam:*
+                  - ecs:RegisterTaskDefinition
+                  - ecs:DeregisterTaskDefinition
                 Resource: "*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole
       Path: /
 
   CodePipeline:
@@ -264,9 +252,9 @@ Resources:
               InputArtifacts:
                 - Name: SourceCode
               OutputArtifacts:
-                - Name: BuildOutput
+                - Name: Artifacts
               RunOrder: 1
-        - Name: Deploy
+        - Name: Edge
           Actions:
             - Name: CreateChangeSet
               ActionTypeId:
@@ -275,16 +263,16 @@ Resources:
                 Owner: AWS
                 Version: 1
               Configuration:
-                StackName: !Ref FargateStackName
+                StackName: !Ref EdgeStackName
                 ActionMode: CHANGE_SET_REPLACE
                 ChangeSetName: ChangeSet
                 RoleArn: !GetAtt CloudFormationRole.Arn
                 Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: SourceArtifact::cfn.yml
-                TemplateConfiguration: BuildOutput::build.json
+                TemplatePath: SourceCode::cfn.yaml
+                TemplateConfiguration: Artifacts::config.json
               InputArtifacts:
                 - Name: SourceCode
-                - Name: BuildOutput
+                - Name: Artifacts
               OutputArtifacts:
                 - Name: CreatedChangeSet
               RunOrder: 1
@@ -295,7 +283,7 @@ Resources:
                 Owner: AWS
                 Version: 1
               Configuration:
-                StackName: !Ref FargateStackName
+                StackName: !Ref EdgeStackName
                 ActionMode: CHANGE_SET_EXECUTE
                 ChangeSetName: ChangeSet
               InputArtifacts:

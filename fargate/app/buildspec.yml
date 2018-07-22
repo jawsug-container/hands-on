@@ -1,0 +1,23 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt-get update
+      - apt-get -y install python-pip
+      - pip install --upgrade python
+      - pip install --upgrade awscli
+  pre_build:
+    commands:
+      - TAG="$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | head -c 7)"
+      - $(aws ecr get-login --no-include-email)
+  build:
+    commands:
+      - docker build --tag ${REPOSITORY_URI}:${TAG} .
+  post_build:
+    commands:
+      - docker push ${REPOSITORY_URI}:${TAG}
+      - printf '{"Parameters":{"ProjectID":"%s","DockerImage":"%s"}}' ${PROJECT_ID} ${REPOSITORY_URI}:${TAG} > config.json
+
+artifacts:
+  files: config.json
