@@ -21,6 +21,11 @@ Outputs:
     Export:
       Name: !Sub PublicAccess-${ProjectID}
 
+  InternalAccess:
+    Value: !GetAtt InternalSecurityGroup.GroupId
+    Export:
+      Name: !Sub InternalAccess-${ProjectID}
+
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -390,3 +395,22 @@ Resources:
       Tags:
         - Key: Name
           Value: PublicAccess
+
+  InternalSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SecurityGroup for internal access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: 10.0.0.0/16
+          IpProtocol: -1
+      Tags:
+        - Key: Name
+          Value: InternalAccess
+
+  InternalSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref InternalSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref InternalSecurityGroup

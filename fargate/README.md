@@ -33,6 +33,7 @@ $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \
 
 ```
 - 01-provision-aws-resources.ipynb
+- 05-teardown-resources.ipynb
 ```
 
 ### 5. 後片付け

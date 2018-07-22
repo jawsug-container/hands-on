@@ -2,9 +2,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: "A fargate application"
 
 Outputs:
-  TaskArn:
-    Description: ARN of the task
-    Value: !Ref FargateTaskDefinition
+  Cluster:
+    Description: the ECS cluster name
+    Value: !Ref Cluster
 
 Metadata:
   AWS::CloudFormation::Interface:
