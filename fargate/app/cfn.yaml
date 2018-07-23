@@ -74,16 +74,8 @@ Resources:
             Action: sts:AssumeRole
             Principal:
               Service: ecs-tasks.amazonaws.com
-      Policies:
-        - PolicyName: allow-logs
-          PolicyDocument:
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - logs:DescribeLogStreams
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*/*'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Path: /
 
   FargateTaskDefinition:

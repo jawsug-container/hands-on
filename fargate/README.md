@@ -11,6 +11,8 @@ $ export AWS_SECRET_ACCESS_KEY=
 
 ### 2. git を扱うためのユーザー名とメールアドレス（任意）を変数に設定します
 
+このメールアドレスには、ハンズオンの中で、パイプライン実行のためのメールが送信されます。
+
 ```
 $ export GIT_USER_NAME=
 $ export GIT_EMAIL_ADDRESS=

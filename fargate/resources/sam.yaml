@@ -1,3 +1,4 @@
+Transform: AWS::Serverless-2016-10-31
 AWSTemplateFormatVersion: '2010-09-09'
 Description: "A fargate application with a CI/CD pipeline"
 
@@ -41,6 +42,7 @@ Metadata:
           default: Pipeline Configurations
         Parameters:
           - S3BucketName
+          - ApprovalEmail
 
 Parameters:
   ProjectID:
@@ -51,6 +53,18 @@ Parameters:
 
   EdgeStackName:
     Type: String
+
+  ApprovalEmail:
+    Type: String
+    Description: Email address to which approval should be sent
+    AllowedPattern: "([a-zA-Z0-9_\\-\\.]+)@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.)|(([a-zA-Z0-9\\-]+\\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\\]?)"
+    ConstraintDescription: Must be a valid email address. (e.g. name@example.com)
+
+Globals:
+  Function:
+    Runtime: nodejs8.10
+    MemorySize: 128
+    Timeout: 30
 
 Resources:
 
@@ -82,6 +96,46 @@ Resources:
      RepositoryName: fargate-handson
      RepositoryDescription: Code repository for Fargate hands-on
 
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref ApprovalEmail
+
+  NotificationFuncRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: lambda.amazonaws.com
+      Policies:
+        - PolicyName: allow-codepipeline-and-sns
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codepipeline:*
+                  - sns:*
+                Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /
+
+  NotificationFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fargate-cicd-notification
+      CodeUri: notification/
+      Handler: index.handler
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref Topic
+      Role: !GetAtt NotificationFuncRole.Arn
+
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -95,6 +149,10 @@ Resources:
         - PolicyName: code-build-service
           PolicyDocument:
             Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
@@ -155,6 +213,8 @@ Resources:
               - Effect: Allow
                 Action:
                   - iam:PassRole
+                  - codecommit:ListRepositories
+                  - lambda:List*
                   - cloudformation:CreateChangeSet
                   - cloudformation:CreateStack
                   - cloudformation:CreateUploadBucket
@@ -170,11 +230,9 @@ Resources:
                   - s3:PutObject
                   - s3:GetObject
                   - s3:GetObjectVersion
-                  - s3:GetBucketVersioning
                 Resource: !Sub arn:aws:s3:::${S3BucketName}/*
               - Effect: Allow
                 Action:
-                  - codecommit:ListRepositories
                   - codecommit:ListBranches
                   - codecommit:BatchGetRepositories
                   - codecommit:Get*
@@ -190,6 +248,11 @@ Resources:
                 Resource:
                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuild}
                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuild}:*
+              - Effect: Allow
+                Action:
+                  - lambda:*
+                Resource:
+                  - !GetAtt NotificationFunc.Arn
       Path: /
 
   CloudFormationRole:
@@ -210,6 +273,10 @@ Resources:
                   - iam:*
                   - ecs:RegisterTaskDefinition
                   - ecs:DeregisterTaskDefinition
+                  # for stack deletion
+                  - logs:DeleteLogGroup
+                  - ecs:DeleteService
+                  - ecs:DeleteCluster
                 Resource: "*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
@@ -256,7 +323,7 @@ Resources:
               RunOrder: 1
         - Name: Edge
           Actions:
-            - Name: CreateChangeSet
+            - Name: CreateEdgeChangeSet
               ActionTypeId:
                 Category: Deploy
                 Provider: CloudFormation
@@ -274,9 +341,9 @@ Resources:
                 - Name: SourceCode
                 - Name: Artifacts
               OutputArtifacts:
-                - Name: CreatedChangeSet
+                - Name: CreatedEdgeChangeSet
               RunOrder: 1
-            - Name: ExecuteChangeSet
+            - Name: ExecuteEdgeChangeSet
               ActionTypeId:
                 Category: Deploy
                 Provider: CloudFormation
@@ -287,10 +354,24 @@ Resources:
                 ActionMode: CHANGE_SET_EXECUTE
                 ChangeSetName: ChangeSet
               InputArtifacts:
-                - Name: CreatedChangeSet
+                - Name: CreatedEdgeChangeSet
               OutputArtifacts:
-                - Name: Deployed
+                - Name: EdgeDeployed
               RunOrder: 2
+            - Name: EdgeDeployedNotification
+              ActionTypeId:
+                Category: Invoke
+                Provider: Lambda
+                Owner: AWS
+                Version: 1
+              Configuration:
+                FunctionName: !Ref NotificationFunc
+                UserParameters: "{\"EnvName\":\"Edge\"}"
+              InputArtifacts:
+                - Name: EdgeDeployed
+              OutputArtifacts:
+                - Name: EdgeFinished
+              RunOrder: 3
     DependsOn:
       - CodeBuild
       - CodePipelineServiceRole
