@@ -44,6 +44,7 @@ $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \
 ```
 - 01-provision-aws-resources.ipynb
 - 02-develop-with-git.ipynb
+- 03-deploy-to-staging.ipynb
 - 05-teardown-resources.ipynb
 ```
 

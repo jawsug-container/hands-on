@@ -17,6 +17,10 @@ Metadata:
           default: Application Configurations
         Parameters:
           - DockerImage
+          - BasicAuthUsername
+          - BasicAuthPassword
+          - ContainerCpu
+          - ContainerMemory
 
 Parameters:
   ProjectID:
@@ -24,6 +28,15 @@ Parameters:
 
   DockerImage:
     Type: String
+
+  BasicAuthUsername:
+    Type: String
+    Default: ""
+
+  BasicAuthPassword:
+    Type: String
+    Default: ""
+    NoEcho: true
 
   ContainerCpu:
     Type: Number
@@ -45,7 +58,7 @@ Resources:
   Cluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: fargate-handson
+      ClusterName: !Ref AWS::StackName
 
   CloudWatchLogsGroup:
     Type: AWS::Logs::LogGroup
@@ -94,6 +107,10 @@ Resources:
           Environment:
             - Name: PROJECT_ID
               Value: !Ref ProjectID
+            - Name: BASIC_AUTH_USER
+              Value: !Ref BasicAuthUsername
+            - Name: BASIC_AUTH_PASS
+              Value: !Ref BasicAuthPassword
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -108,7 +125,6 @@ Resources:
   FargateService:
     Type: AWS::ECS::Service
     Properties:
-      ServiceName: !Ref AWS::StackName
       Cluster: !Ref Cluster
       LaunchType: FARGATE
       DesiredCount: 1
