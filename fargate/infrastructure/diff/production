@@ -1,0 +1,151 @@
+--- /root/notebook/infrastructure/sam.yaml
++++ /root/notebook/infrastructure/sam.yaml.production
+@@ -47,6 +47,7 @@
+           - ProjectID
+           - EdgeStackName
+           - StagingStackName
++          - ProductionStackName
+       - Label:
+           default: Pipeline Configurations
+         Parameters:
+@@ -67,6 +68,9 @@
+   StagingStackName:
+     Type: String
+ 
++  ProductionStackName:
++    Type: String
++
+   DockerBuildImage:
+     Type: String
+     Default: "aws/codebuild/docker:17.09.0"
+@@ -240,6 +244,28 @@
+         Type: CODEPIPELINE
+         BuildSpec: deploy/staging/buildspec.yml
+ 
++  CodeBuildProduction:
++    Type: AWS::CodeBuild::Project
++    Properties:
++      Name: !Sub ${AWS::StackName}-production
++      ServiceRole: !Ref CodeBuildServiceRole
++      Environment:
++        ComputeType: BUILD_GENERAL1_SMALL
++        Type: LINUX_CONTAINER
++        Image: !Ref DockerBuildImage
++        EnvironmentVariables:
++          - Name: PROJECT_ID
++            Value: !Ref ProjectID
++          - Name: ENVIRONMENT_NAME
++            Value: production
++          - Name: REPOSITORY_URI
++            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${DockerRepository}
++      Artifacts:
++        Type: CODEPIPELINE
++      Source:
++        Type: CODEPIPELINE
++        BuildSpec: deploy/production/buildspec.yml
++
+   CodePipelineServiceRole:
+     Type: AWS::IAM::Role
+     Properties:
+@@ -293,6 +319,8 @@
+                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuild}:*
+                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuildStaging}
+                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuildStaging}:*
++                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuildProduction}
++                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuildProduction}:*
+               - Effect: Allow
+                 Action:
+                   - lambda:*
+@@ -462,7 +490,20 @@
+               OutputArtifacts:
+                 - Name: Artifacts
+               RunOrder: 1
+-        - Name: Deploy
++            - Name: ProdConfig
++              ActionTypeId:
++                Category: Build
++                Provider: CodeBuild
++                Owner: AWS
++                Version: 1
++              Configuration:
++                ProjectName: !Ref CodeBuildProduction
++              InputArtifacts:
++                - Name: SourceCode
++              OutputArtifacts:
++                - Name: ProdConfig
++              RunOrder: 1
++        - Name: DeployToStaging
+           Actions:
+             - Name: CreateStagingChangeSet
+               ActionTypeId:
+@@ -513,8 +554,70 @@
+               OutputArtifacts:
+                 - Name: StagingFinished
+               RunOrder: 3
++        - Name: DeployToProduction
++          Actions:
++            - Name: CreateProductionChangeSet
++              ActionTypeId:
++                Category: Deploy
++                Provider: CloudFormation
++                Owner: AWS
++                Version: 1
++              Configuration:
++                StackName: !Ref ProductionStackName
++                ActionMode: CHANGE_SET_REPLACE
++                ChangeSetName: ChangeSet
++                RoleArn: !GetAtt CloudFormationRole.Arn
++                Capabilities: CAPABILITY_NAMED_IAM
++                TemplatePath: SourceCode::deploy/cfn-release.yaml
++                TemplateConfiguration: ProdConfig::config.json
++              InputArtifacts:
++                - Name: SourceCode
++                - Name: ProdConfig
++              OutputArtifacts:
++                - Name: CreatedProductionChangeSet
++              RunOrder: 1
++            - Name: ProdApproval
++              ActionTypeId:
++                Category: Approval
++                Provider: Manual
++                Owner: AWS
++                Version: 1
++              Configuration:
++                NotificationArn: !Ref Topic
++                CustomData: Approve deployment in production.
++              RunOrder: 2
++            - Name: ExecuteProductionChangeSet
++              ActionTypeId:
++                Category: Deploy
++                Provider: CloudFormation
++                Owner: AWS
++                Version: 1
++              Configuration:
++                StackName: !Ref ProductionStackName
++                ActionMode: CHANGE_SET_EXECUTE
++                ChangeSetName: ChangeSet
++              InputArtifacts:
++                - Name: CreatedProductionChangeSet
++              OutputArtifacts:
++                - Name: ProductionDeployed
++              RunOrder: 3
++            - Name: ProductionDeployedNotification
++              ActionTypeId:
++                Category: Invoke
++                Provider: Lambda
++                Owner: AWS
++                Version: 1
++              Configuration:
++                FunctionName: !Ref NotificationFunc
++                UserParameters: "{\"EnvName\":\"Production\"}"
++              InputArtifacts:
++                - Name: ProductionDeployed
++              OutputArtifacts:
++                - Name: ProductionFinished
++              RunOrder: 4
+     DependsOn:
+       - CodeBuildStaging
++      - CodeBuildProduction
+       - CodePipelineServiceRole
+ 
+   VPC:

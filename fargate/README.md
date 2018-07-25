@@ -54,3 +54,8 @@ $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \
 `Ctrl + C` でコンテナに停止シグナルを送ると、Jupyter notebook から  
 `Shutdown this notebook server (y/[n])?` と聞かれます。 
 `y` と入力してコンテナを終了しましょう。 
+
+## 参考
+
+[AWS 公式: startup-kit-templates](https://github.com/aws-samples/startup-kit-templates/)
+[AWS 公式: codepipeline-nested-cfn](https://github.com/aws-samples/codepipeline-nested-cfn/)

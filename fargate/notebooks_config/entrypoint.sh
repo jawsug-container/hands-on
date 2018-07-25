@@ -83,6 +83,7 @@ if [ ! -e /root/config/.env ]; then
 export PROJECT_ID=$( python3 -c "import uuid;print(uuid.uuid4())" )
 EOF
 fi
+# shellcheck disable=SC1091
 source /root/config/.env
 
 cat << EOT

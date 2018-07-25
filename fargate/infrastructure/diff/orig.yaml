@@ -10,9 +10,6 @@ Outputs:
   CodePipeline:
     Value: !Ref CodePipeline
 
-  CodePipelineRelease:
-    Value: !Ref CodePipelineRelease
-
   VPC:
     Value: !Ref VPC
     Export:
@@ -46,7 +43,6 @@ Metadata:
         Parameters:
           - ProjectID
           - EdgeStackName
-          - StagingStackName
       - Label:
           default: Pipeline Configurations
         Parameters:
@@ -62,9 +58,6 @@ Parameters:
     Type: String
 
   EdgeStackName:
-    Type: String
-
-  StagingStackName:
     Type: String
 
   DockerBuildImage:
@@ -218,28 +211,6 @@ Resources:
         Type: CODEPIPELINE
         BuildSpec: deploy/edge/buildspec.yml
 
-  CodeBuildStaging:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: !Sub ${AWS::StackName}-staging
-      ServiceRole: !Ref CodeBuildServiceRole
-      Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        Type: LINUX_CONTAINER
-        Image: !Ref DockerBuildImage
-        EnvironmentVariables:
-          - Name: PROJECT_ID
-            Value: !Ref ProjectID
-          - Name: ENVIRONMENT_NAME
-            Value: staging
-          - Name: REPOSITORY_URI
-            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${DockerRepository}
-      Artifacts:
-        Type: CODEPIPELINE
-      Source:
-        Type: CODEPIPELINE
-        BuildSpec: deploy/staging/buildspec.yml
-
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -291,8 +262,6 @@ Resources:
                 Resource:
                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuild}
                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuild}:*
-                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuildStaging}
-                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuildStaging}:*
               - Effect: Allow
                 Action:
                   - lambda:*
@@ -319,9 +288,6 @@ Resources:
                   - ecs:RegisterTaskDefinition
                   - ecs:DeregisterTaskDefinition
                   # for stack update / deletion
-                  - elasticloadbalancing:ModifyTargetGroup
-                  - elasticloadbalancing:Delete*
-                  - application-autoscaling:*
                   - ecs:CreateService
                   - ecs:Delete*
                   - logs:Delete*
@@ -423,98 +389,6 @@ Resources:
               RunOrder: 3
     DependsOn:
       - CodeBuild
-      - CodePipelineServiceRole
-
-  CodePipelineRelease:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      RoleArn: !GetAtt CodePipelineServiceRole.Arn
-      ArtifactStore:
-        Type: S3
-        Location: !Ref S3BucketName
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: Source
-              ActionTypeId:
-                Category: Source
-                Provider: CodeCommit
-                Owner: AWS
-                Version: 1
-              Configuration:
-                RepositoryName: !GetAtt CodeRepository.Name
-                BranchName: release
-              OutputArtifacts:
-                - Name: SourceCode
-              RunOrder: 1
-        - Name: Build
-          Actions:
-            - Name: Build
-              ActionTypeId:
-                Category: Build
-                Provider: CodeBuild
-                Owner: AWS
-                Version: 1
-              Configuration:
-                ProjectName: !Ref CodeBuildStaging
-              InputArtifacts:
-                - Name: SourceCode
-              OutputArtifacts:
-                - Name: Artifacts
-              RunOrder: 1
-        - Name: Deploy
-          Actions:
-            - Name: CreateStagingChangeSet
-              ActionTypeId:
-                Category: Deploy
-                Provider: CloudFormation
-                Owner: AWS
-                Version: 1
-              Configuration:
-                StackName: !Ref StagingStackName
-                ActionMode: CHANGE_SET_REPLACE
-                ChangeSetName: ChangeSet
-                RoleArn: !GetAtt CloudFormationRole.Arn
-                Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: SourceCode::deploy/cfn-release.yaml
-                TemplateConfiguration: Artifacts::config.json
-              InputArtifacts:
-                - Name: SourceCode
-                - Name: Artifacts
-              OutputArtifacts:
-                - Name: CreatedStagingChangeSet
-              RunOrder: 1
-            - Name: ExecuteStagingChangeSet
-              ActionTypeId:
-                Category: Deploy
-                Provider: CloudFormation
-                Owner: AWS
-                Version: 1
-              Configuration:
-                StackName: !Ref StagingStackName
-                ActionMode: CHANGE_SET_EXECUTE
-                ChangeSetName: ChangeSet
-              InputArtifacts:
-                - Name: CreatedStagingChangeSet
-              OutputArtifacts:
-                - Name: StagingDeployed
-              RunOrder: 2
-            - Name: StagingDeployedNotification
-              ActionTypeId:
-                Category: Invoke
-                Provider: Lambda
-                Owner: AWS
-                Version: 1
-              Configuration:
-                FunctionName: !Ref NotificationFunc
-                UserParameters: "{\"EnvName\":\"Staging\"}"
-              InputArtifacts:
-                - Name: StagingDeployed
-              OutputArtifacts:
-                - Name: StagingFinished
-              RunOrder: 3
-    DependsOn:
-      - CodeBuildStaging
       - CodePipelineServiceRole
 
   VPC:
