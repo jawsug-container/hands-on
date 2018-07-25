@@ -49,12 +49,12 @@ RUN git config --global credential.helper '!aws codecommit credential-helper $@'
     && git config --global credential.UseHttpPath true
 
 WORKDIR /root/notebook
-ADD config/jupyter_notebook.py /root/.jupyter/jupyter_notebook_config.py
+ADD notebooks_config/jupyter_notebook.py /root/.jupyter/jupyter_notebook_config.py
 ADD notebooks /root/notebook
-ADD resources /root/notebook/aws-resources
-ADD app /root/notebook/application
+ADD application /root/notebook/application
+ADD infrastructure /root/notebook/infrastructure
 
-ADD config/entrypoint.sh /
+ADD notebooks_config/entrypoint.sh /
 RUN chmod +x /entrypoint.sh \
     && mkdir /root/config
 

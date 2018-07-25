@@ -214,7 +214,7 @@ Resources:
   CodeBuildStaging:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Ref AWS::StackName
+      Name: !Sub ${AWS::StackName}-staging
       ServiceRole: !Ref CodeBuildServiceRole
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
@@ -283,6 +283,8 @@ Resources:
                 Resource:
                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuild}
                   - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuild}:*
+                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuildStaging}
+                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuildStaging}:*
               - Effect: Allow
                 Action:
                   - lambda:*

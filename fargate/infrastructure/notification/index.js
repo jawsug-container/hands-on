@@ -18,7 +18,7 @@ exports.handler = function(event, context) {
     var sns = new AWS.SNS();
     sns.publish({
         TopicArn: process.env.TOPIC_ARN,
-        Subject: "[ "+params.EnvName+" ] A new version was deployed via AWS CodePipeline",
+        Subject: "A new version was deployed via AWS CodePipeline",
         Message: "Successfully deployed a new version to "+params.EnvName+" fargate!"
     }, function (err, data) {
         if (err) {
