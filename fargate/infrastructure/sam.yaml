@@ -47,6 +47,7 @@ Metadata:
           default: Pipeline Configurations
         Parameters:
           - S3BucketName
+          - DockerBuildImage
           - ApprovalEmail
 
 Parameters:
@@ -58,6 +59,11 @@ Parameters:
 
   EdgeStackName:
     Type: String
+
+  DockerBuildImage:
+    Type: String
+    Default: "aws/codebuild/docker:17.09.0"
+    Description: Docker Image used by CodeBuild
 
   ApprovalEmail:
     Type: String
@@ -191,7 +197,7 @@ Resources:
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Type: LINUX_CONTAINER
-        Image: aws/codebuild/docker:17.09.0
+        Image: !Ref DockerBuildImage
         EnvironmentVariables:
           - Name: PROJECT_ID
             Value: !Ref ProjectID
@@ -203,6 +209,7 @@ Resources:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
+        BuildSpec: deploy/edge/buildspec.yml
 
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
@@ -343,7 +350,7 @@ Resources:
                 ChangeSetName: ChangeSet
                 RoleArn: !GetAtt CloudFormationRole.Arn
                 Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: SourceCode::deploy/edge/cfn.yaml
+                TemplatePath: SourceCode::deploy/cfn-master.yaml
                 TemplateConfiguration: Artifacts::config.json
               InputArtifacts:
                 - Name: SourceCode

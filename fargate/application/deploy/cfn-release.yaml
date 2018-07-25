@@ -97,13 +97,6 @@ Parameters:
     MaxValue: 100
     ConstraintDescription: Value must be between 0 and 100
 
-  DefaultTaskMinContainerCount:
-    Type: Number
-    Description: Minimum number of containers to run for the service
-    Default: 1
-    MinValue: 1
-    ConstraintDescription: Value must be at least one
-
 Resources:
   Cluster:
     Type: AWS::ECS::Cluster
@@ -341,7 +334,7 @@ Resources:
         - !Ref ScaleOutPolicy
     DependsOn:
       - ScaleOutPolicy
-  
+
   ScaleInAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -356,8 +349,8 @@ Resources:
           Value: !GetAtt FargateService.Name
       ComparisonOperator: LessThanThreshold
       Period: 300
-      EvaluationPeriods: !Ref DefaultServiceCpuScaleInThreshold
-      Threshold: !Ref DefaultTaskMinContainerCount
+      EvaluationPeriods: !Ref DefaultServiceScaleEvaluationPeriods
+      Threshold: !Ref DefaultServiceCpuScaleInThreshold
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref ScaleInPolicy
