@@ -1,7 +1,7 @@
-FROM docker:18.03.1-ce-dind
+FROM docker:18.06.0-ce-dind
 
-ENV DOCKER_COMPOSE_VERSION=1.21.2 \
-    AWSCLI_VERSION=1.15.61 \
+ENV DOCKER_COMPOSE_VERSION=1.22.0 \
+    AWSCLI_VERSION=1.15.64 \
     JUPYTER_VERSION=1.0.0
 
 RUN apk --no-cache add python3 git
