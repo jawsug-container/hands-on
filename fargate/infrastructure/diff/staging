@@ -1,5 +1,5 @@
---- /root/notebook/infrastructure/sam.yaml
-+++ /root/notebook/infrastructure/sam.yaml.staging
+--- sam-edge.yaml
++++ sam.yaml
 @@ -10,6 +10,9 @@
    CodePipeline:
      Value: !Ref CodePipeline
@@ -28,10 +28,11 @@
    DockerBuildImage:
      Type: String
      Default: "aws/codebuild/docker:17.09.0"
-@@ -211,6 +218,28 @@
+@@ -218,6 +225,29 @@
          Type: CODEPIPELINE
          BuildSpec: deploy/edge/buildspec.yml
  
++  # アプリケーションのテストやビルドの定義（ステージング環境）
 +  CodeBuildStaging:
 +    Type: AWS::CodeBuild::Project
 +    Properties:
@@ -54,10 +55,10 @@
 +        Type: CODEPIPELINE
 +        BuildSpec: deploy/staging/buildspec.yml
 +
+   # 継続的インテグレーション/継続的デプロイのパイプラインに必要な権限
    CodePipelineServiceRole:
      Type: AWS::IAM::Role
-     Properties:
-@@ -262,6 +291,8 @@
+@@ -271,6 +301,8 @@
                  Resource:
                    - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuild}
                    - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuild}:*
@@ -66,7 +67,7 @@
                - Effect: Allow
                  Action:
                    - lambda:*
-@@ -288,6 +319,9 @@
+@@ -298,6 +330,9 @@
                    - ecs:RegisterTaskDefinition
                    - ecs:DeregisterTaskDefinition
                    # for stack update / deletion
@@ -76,12 +77,13 @@
                    - ecs:CreateService
                    - ecs:Delete*
                    - logs:Delete*
-@@ -389,6 +423,98 @@
+@@ -400,6 +435,99 @@
                RunOrder: 3
      DependsOn:
        - CodeBuild
 +      - CodePipelineServiceRole
 +
++  # 継続的インテグレーション/継続的デプロイのパイプライン（ステージング・本番環境）
 +  CodePipelineRelease:
 +    Type: AWS::CodePipeline::Pipeline
 +    Properties:
@@ -119,7 +121,7 @@
 +              OutputArtifacts:
 +                - Name: Artifacts
 +              RunOrder: 1
-+        - Name: Deploy
++        - Name: DeployToStaging
 +          Actions:
 +            - Name: CreateStagingChangeSet
 +              ActionTypeId:
@@ -174,4 +176,4 @@
 +      - CodeBuildStaging
        - CodePipelineServiceRole
  
-   VPC:
+   # アプリケーションのための VPC

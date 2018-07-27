@@ -79,6 +79,7 @@ Globals:
 
 Resources:
 
+  # 成果物である Docker イメージを保持するリポジトリ
   DockerRepository:
     Type: AWS::ECR::Repository
     Properties:
@@ -101,12 +102,14 @@ Resources:
               ]
             }
 
+  # ソースコードを保持するためのリポジトリ
   CodeRepository:
    Type: AWS::CodeCommit::Repository
    Properties:
      RepositoryName: fargate-handson
      RepositoryDescription: Code repository for Fargate hands-on
 
+  # パイプラインの完了通知や承認リンクを送信するための通知トピック
   Topic:
     Type: AWS::SNS::Topic
     Properties:
@@ -114,6 +117,7 @@ Resources:
         - Protocol: email
           Endpoint: !Ref ApprovalEmail
 
+  # 通知 Lambda の動作に必要な権限
   NotificationFuncRole:
     Type: AWS::IAM::Role
     Properties:
@@ -136,6 +140,7 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Path: /
 
+  # 通知 Lambda
   NotificationFunc:
     Type: AWS::Serverless::Function
     Properties:
@@ -147,6 +152,7 @@ Resources:
           TOPIC_ARN: !Ref Topic
       Role: !GetAtt NotificationFuncRole.Arn
 
+  # アプリケーションのテストやビルドに必要な権限
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -189,6 +195,7 @@ Resources:
                 Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${DockerRepository}
       Path: /
 
+  # アプリケーションのテストやビルドの定義（開発環境）
   CodeBuild:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -211,6 +218,7 @@ Resources:
         Type: CODEPIPELINE
         BuildSpec: deploy/edge/buildspec.yml
 
+  # 継続的インテグレーション/継続的デプロイのパイプラインに必要な権限
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -227,6 +235,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - iam:PassRole
+                  - sns:Publish
                   - codecommit:ListRepositories
                   - lambda:List*
                   - cloudformation:CreateChangeSet
@@ -269,6 +278,7 @@ Resources:
                   - !GetAtt NotificationFunc.Arn
       Path: /
 
+  # 継続的デプロイに必要な権限
   CloudFormationRole:
     Type: AWS::IAM::Role
     Properties:
@@ -299,6 +309,7 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole
       Path: /
 
+  # 継続的インテグレーション/継続的デプロイのパイプライン（開発環境）
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -391,6 +402,7 @@ Resources:
       - CodeBuild
       - CodePipelineServiceRole
 
+  # アプリケーションのための VPC
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -466,6 +478,7 @@ Resources:
       SubnetId: !Ref PublicSubnet2
       RouteTableId: !Ref PublicRouteTable
 
+  # 一般公開からの接続用セキュリティグループ
   PublicAccessSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -480,6 +493,7 @@ Resources:
         - Key: Name
           Value: PublicAccess
 
+  # VPC 内部からの接続用セキュリティグループ
   InternalSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:

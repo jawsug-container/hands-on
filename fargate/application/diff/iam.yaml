@@ -1,10 +1,10 @@
---- deploy/cfn-master.yaml.old
-+++ deploy/cfn-master.yaml
-@@ -89,6 +89,7 @@
+--- cfn-master-old.yaml
++++ cfn-master.yaml
+@@ -94,6 +94,7 @@
                Service: ecs-tasks.amazonaws.com
        ManagedPolicyArns:
        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 +      - arn:aws:iam::aws:policy/TranslateReadOnly
        Path: /
  
-   FargateTaskDefinition:
+   # Fargate（アプリケーション）の定義

@@ -1,12 +1,15 @@
 # Fargate アプリケーションの継続的デリバリー
 
+この git リポジトリを clone する必要はありませんし、任意のディレクトリで動作します。  
+Docker クライアントを操作できる端末を起動し、以下のステップを実行してください。
+
 ## ハンズオン環境の起動
 
 ### 1. アクセスキーをそれぞれ変数に設定します
 
 ```
-$ export AWS_ACCESS_KEY_ID=
-$ export AWS_SECRET_ACCESS_KEY=
+$ AWS_ACCESS_KEY_ID=<あなたの AWS アクセスキー>
+$ AWS_SECRET_ACCESS_KEY=<あなたの AWS シークレットキー>
 ```
 
 ### 2. git を扱うためのユーザー名とメールアドレス（任意）を変数に設定します
@@ -14,8 +17,8 @@ $ export AWS_SECRET_ACCESS_KEY=
 このメールアドレスには、ハンズオンの中で、パイプライン実行のためのメールが送信されます。
 
 ```
-$ export GIT_USER_NAME=
-$ export GIT_EMAIL_ADDRESS=
+$ GIT_USER_NAME=<あなたの git ユーザー名（任意）>
+$ GIT_EMAIL_ADDRESS=<あなたの git ユーザーメールアドレス（有効なもの）>
 ```
 
 ### 3. ハンズオン環境を起動します
@@ -42,6 +45,7 @@ $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \
 以下の順序でハンズオンを進めてください。
 
 ```
+- 00-overview.ipynb
 - 01-provision-aws-resources.ipynb
 - 02-develop-with-git.ipynb
 - 03-deploy-to-staging.ipynb
@@ -57,5 +61,5 @@ $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \
 
 ## 参考
 
-[AWS 公式: startup-kit-templates](https://github.com/aws-samples/startup-kit-templates/)
-[AWS 公式: codepipeline-nested-cfn](https://github.com/aws-samples/codepipeline-nested-cfn/)
+- [AWS 公式: startup-kit-templates](https://github.com/aws-samples/startup-kit-templates/)
+- [AWS 公式: codepipeline-nested-cfn](https://github.com/aws-samples/codepipeline-nested-cfn/)

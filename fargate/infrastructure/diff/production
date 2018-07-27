@@ -1,5 +1,5 @@
---- /root/notebook/infrastructure/sam.yaml
-+++ /root/notebook/infrastructure/sam.yaml.production
+--- sam-staging.yaml
++++ sam.yaml
 @@ -47,6 +47,7 @@
            - ProjectID
            - EdgeStackName
@@ -18,10 +18,11 @@
    DockerBuildImage:
      Type: String
      Default: "aws/codebuild/docker:17.09.0"
-@@ -240,6 +244,28 @@
+@@ -248,6 +252,29 @@
          Type: CODEPIPELINE
          BuildSpec: deploy/staging/buildspec.yml
  
++  # アプリケーションのテストやビルドの定義（本番環境）
 +  CodeBuildProduction:
 +    Type: AWS::CodeBuild::Project
 +    Properties:
@@ -44,10 +45,10 @@
 +        Type: CODEPIPELINE
 +        BuildSpec: deploy/production/buildspec.yml
 +
+   # 継続的インテグレーション/継続的デプロイのパイプラインに必要な権限
    CodePipelineServiceRole:
      Type: AWS::IAM::Role
-     Properties:
-@@ -293,6 +319,8 @@
+@@ -303,6 +330,8 @@
                    - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuild}:*
                    - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CodeBuildStaging}
                    - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/${CodeBuildStaging}:*
@@ -56,11 +57,10 @@
                - Effect: Allow
                  Action:
                    - lambda:*
-@@ -462,7 +490,20 @@
+@@ -475,6 +504,19 @@
                OutputArtifacts:
                  - Name: Artifacts
                RunOrder: 1
--        - Name: Deploy
 +            - Name: ProdConfig
 +              ActionTypeId:
 +                Category: Build
@@ -74,11 +74,10 @@
 +              OutputArtifacts:
 +                - Name: ProdConfig
 +              RunOrder: 1
-+        - Name: DeployToStaging
+         - Name: DeployToStaging
            Actions:
              - Name: CreateStagingChangeSet
-               ActionTypeId:
-@@ -513,8 +554,70 @@
+@@ -526,8 +568,70 @@
                OutputArtifacts:
                  - Name: StagingFinished
                RunOrder: 3
@@ -148,4 +147,4 @@
 +      - CodeBuildProduction
        - CodePipelineServiceRole
  
-   VPC:
+   # アプリケーションのための VPC

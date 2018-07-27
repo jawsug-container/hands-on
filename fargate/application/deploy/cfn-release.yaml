@@ -98,16 +98,20 @@ Parameters:
     ConstraintDescription: Value must be between 0 and 100
 
 Resources:
+
+  # Fargate のコントロールプレインとなる ECS クラスタ
   Cluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Ref AWS::StackName
 
+  # アプリケーションログの出力先
   CloudWatchLogsGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       RetentionInDays: 1
 
+  # Fargate の起動に必要な権限
   ExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -121,6 +125,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Path: /
 
+  # Fargate（アプリケーション）に付与する権限
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -134,6 +139,7 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Path: /
 
+  # Fargate（アプリケーション）の定義
   FargateTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -165,6 +171,7 @@ Resources:
       NetworkMode: awsvpc
       TaskRoleArn: !GetAtt TaskRole.Arn
 
+  # Fargate の外部インターフェイスの定義
   FargateService:
     Type: AWS::ECS::Service
     Properties:
@@ -190,6 +197,7 @@ Resources:
     - TargetGroup
     - ListenerRule
 
+  # フロントエンドのロードバランサー
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -252,6 +260,7 @@ Resources:
       ListenerArn: !Ref Listener
       Priority: 1
 
+  # オートスケーリングの設定
   AutoScalingRole:
     Type: AWS::IAM::Role
     Properties:
