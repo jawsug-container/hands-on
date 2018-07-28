@@ -9,7 +9,7 @@ phases:
       - pip install --upgrade awscli
   pre_build:
     commands:
-      - aws cloudformation validate-template --template-body file://deploy/cfn-master.yaml
+      - aws cloudformation validate-template --template-body fileb://deploy/cfn-master.yaml
       - IMAGE_NAME="${REPOSITORY_URI}:$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | head -c 7)"
       - BASIC_AUTH='"BasicAuthUsername":"","BasicAuthPassword":""'
       - |

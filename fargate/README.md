@@ -8,8 +8,8 @@ Docker クライアントを操作できる端末を起動し、以下のステ�
 ### 1. アクセスキーをそれぞれ変数に設定します
 
 ```
-$ AWS_ACCESS_KEY_ID=<あなたの AWS アクセスキー>
-$ AWS_SECRET_ACCESS_KEY=<あなたの AWS シークレットキー>
+$ export AWS_ACCESS_KEY_ID=<あなたの AWS アクセスキー>
+$ export AWS_SECRET_ACCESS_KEY=<あなたの AWS シークレットキー>
 ```
 
 ### 2. git を扱うためのユーザー名とメールアドレス（任意）を変数に設定します
@@ -17,29 +17,35 @@ $ AWS_SECRET_ACCESS_KEY=<あなたの AWS シークレットキー>
 このメールアドレスには、ハンズオンの中で、パイプライン実行のためのメールが送信されます。
 
 ```
-$ GIT_USER_NAME=<あなたの git ユーザー名（任意）>
-$ GIT_EMAIL_ADDRESS=<あなたの git ユーザーメールアドレス（有効なもの）>
+$ export GIT_USER_NAME=<あなたの git ユーザー名（任意）>
+$ export GIT_EMAIL_ADDRESS=<あなたの git ユーザーメールアドレス（有効なもの）>
 ```
 
-### 3. ハンズオン環境を起動します
+### 3. ハンズオン環境の設定置き場を作ります
+
+```
+$ docker volume create fargate-handson
+```
+
+### 4. ハンズオン環境を起動します
 
 ```
 $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \
      -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
      -e GIT_USER_NAME -e GIT_EMAIL_ADDRESS \
      -v /var/run/docker.sock:/var/run/docker.sock \
-     -v $(pwd):/root/config \
+     -v fargate-handson:/root/config \
      -p 8080:8080 jawsug/container:fargate-handson
 ```
 
-### 4. ブラウザで環境に接続します
+### 5. ブラウザで環境に接続します
 
 ブラウザで http://localhost:8080 を開いてください。  
 （EC2 を利用している場合は、localhost を EC2 のパブリック IP アドレスに読み替えてください）
 
 パスワードを聞かれるので **jawsug** と入力してください。
 
-### 5. ハンズオンの実施
+### 6. ハンズオンの実施
 
 ハンズオンはブラウザ内の Jupyter notebook で行います。  
 以下の順序でハンズオンを進めてください。
@@ -53,11 +59,17 @@ $ docker run --rm -it -e AWS_DEFAULT_REGION=ap-northeast-1 \
 - 05-teardown-resources.ipynb
 ```
 
-### 6. 後片付け
+### 7. 後片付け
 
 `Ctrl + C` でコンテナに停止シグナルを送ると、Jupyter notebook から  
 `Shutdown this notebook server (y/[n])?` と聞かれます。 
 `y` と入力してコンテナを終了しましょう。 
+
+最後に設定を保存したボリュームを削除します。
+
+```
+$ docker volume rm fargate-handson
+```
 
 ## 参考
 

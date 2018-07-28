@@ -1,29 +1,9 @@
 FROM docker:18.06.0-ce-dind
 
-ENV DOCKER_COMPOSE_VERSION=1.22.0 \
-    AWSCLI_VERSION=1.15.64 \
+ENV AWSCLI_VERSION=1.15.66 \
     JUPYTER_VERSION=1.0.0
 
 RUN apk --no-cache add python3 git
-
-# Install GNU libc
-RUN apk --no-cache add curl \
-    && version="2.27-r0" \
-    && repo="https://github.com/andyshinn/alpine-pkg-glibc/releases/download/${version}" \
-    && curl --location --silent --show-error -O "${repo}/glibc-${version}.apk" \
-    && curl --location --silent --show-error -O "${repo}/glibc-bin-${version}.apk" \
-    && curl --location --silent --show-error -O "${repo}/glibc-i18n-${version}.apk" \
-    && apk add --allow-untrusted "glibc-${version}.apk" \
-       "glibc-bin-${version}.apk" "glibc-i18n-${version}.apk" \
-    && /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib \
-    && /usr/glibc-compat/bin/localedef -i en_US -f UTF-8 en_US.UTF-8 \
-    && rm -rf "glibc-${version}.apk" "glibc-bin-${version}.apk" "glibc-i18n-${version}.apk"
-
-# Install docker-compose
-RUN repo="https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}" \
-    && curl --location --silent --show-error -o /usr/local/bin/docker-compose \
-       "${repo}/docker-compose-$(uname -s)-$(uname -m)" \
-    && chmod +x /usr/local/bin/docker-compose
 
 # Install AWS CLI
 RUN apk --no-cache add groff less jq \
