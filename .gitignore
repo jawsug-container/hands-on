@@ -1,3 +1,5 @@
-doc/_build/doctrees/*
-doc/_build/html/*
-doc/_warn.log
+.env
+env.sh
+.ipynb_checkpoints
+packaged.yaml
+vendor

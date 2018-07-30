@@ -1,0 +1,367 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "A fargate application"
+
+Outputs:
+  Cluster:
+    Description: the ECS cluster name
+    Value: !Ref Cluster
+
+  LoadBalancerDNSName:
+    Value: !GetAtt LoadBalancer.DNSName
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Basic Configurations
+        Parameters:
+          - ProjectID
+      - Label:
+          default: Application Configurations
+        Parameters:
+          - DockerImage
+          - BasicAuthUsername
+          - BasicAuthPassword
+          - ContainerCpu
+          - ContainerMemory
+          - TaskMinContainerCount
+          - TaskMaxContainerCount
+
+Parameters:
+  ProjectID:
+    Type: String
+
+  DockerImage:
+    Type: String
+
+  BasicAuthUsername:
+    Type: String
+    Default: ""
+
+  BasicAuthPassword:
+    Type: String
+    Default: ""
+    NoEcho: true
+
+  ContainerCpu:
+    Type: Number
+    Description: Amount of CPU for the container
+    Default: 256
+    MinValue: 256
+    MaxValue: 4096
+    ConstraintDescription: "Value must be between 256 and 4096 - see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size"
+
+  ContainerMemory:
+    Type: Number
+    Description: Amount of memory for the container
+    Default: 512
+    MinValue: 512
+    MaxValue: 30720
+    ConstraintDescription: "Value must be between 512 and 30720 - see: https://aws.amazon.com/fargate/pricing/"
+
+  # Auto scaling container counts
+  TaskMinContainerCount:
+    Type: Number
+    Description: Minimum number of containers to run for the service
+    Default: 1
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  TaskMaxContainerCount:
+    Type: Number
+    Description: Maximum number of containers to run for the service when auto scaling out
+    Default: 2
+    MinValue: 1
+    ConstraintDescription: Value must be at least one
+
+  # Scaling params
+  DefaultServiceScaleEvaluationPeriods:
+    Description: The number of periods over which data is compared to the specified threshold
+    Type: Number
+    Default: 2
+    MinValue: 2
+
+  DefaultServiceCpuScaleOutThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling out
+    Default: 50
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+
+  DefaultServiceCpuScaleInThreshold:
+    Type: Number
+    Description: Average CPU value to trigger auto scaling in
+    Default: 25
+    MinValue: 0
+    MaxValue: 100
+    ConstraintDescription: Value must be between 0 and 100
+
+Resources:
+
+  # Fargate のコントロールプレインとなる ECS クラスタ
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref AWS::StackName
+
+  # アプリケーションログの出力先
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 1
+
+  # Fargate の起動に必要な権限
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Path: /
+
+  # Fargate（アプリケーション）に付与する権限
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Path: /
+
+  # Fargate（アプリケーション）の定義
+  FargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref AWS::StackName
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: app
+          Image: !Ref DockerImage
+          Essential: true
+          PortMappings:
+            - ContainerPort: 80
+          Environment:
+            - Name: PROJECT_ID
+              Value: !Ref ProjectID
+            - Name: BASIC_AUTH_USER
+              Value: !Ref BasicAuthUsername
+            - Name: BASIC_AUTH_PASS
+              Value: !Ref BasicAuthPassword
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-stream-prefix: fargate
+      Cpu: !Ref ContainerCpu
+      Memory: !Ref ContainerMemory
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt TaskRole.Arn
+
+  # Fargate の外部インターフェイスの定義
+  FargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref TaskMinContainerCount
+      TaskDefinition: !Ref FargateTaskDefinition
+      LoadBalancers:
+        - ContainerName: app
+          ContainerPort: 80
+          TargetGroupArn: !Ref TargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub InternalAccess-${ProjectID}
+          Subnets:
+            - Fn::ImportValue: !Sub PublicSubnet1-${ProjectID}
+            - Fn::ImportValue: !Sub PublicSubnet2-${ProjectID}
+    DependsOn:
+    - LoadBalancer
+    - Listener
+    - TargetGroup
+    - ListenerRule
+
+  # フロントエンドのロードバランサー
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: false
+        - Key: idle_timeout.timeout_seconds
+          Value: 30
+      Subnets:
+        - Fn::ImportValue: !Sub PublicSubnet1-${ProjectID}
+        - Fn::ImportValue: !Sub PublicSubnet2-${ProjectID}
+      SecurityGroups:
+        - Fn::ImportValue: !Sub PublicAccess-${ProjectID}
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: 80
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Sub VPC-${ProjectID}
+      TargetType: ip
+      Protocol: HTTP
+      Port: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+      Matcher:
+        HttpCode: 200
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 30
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: [/]
+      ListenerArn: !Ref Listener
+      Priority: 1
+
+  # オートスケーリングの設定
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+      Policies:
+        - PolicyName: service-autoscaling
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource: '*'
+      Path: /
+
+  ScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      ServiceNamespace: ecs
+      ScalableDimension: ecs:service:DesiredCount
+      ResourceId: !Sub service/${Cluster}/${FargateService.Name}
+      RoleARN: !GetAtt AutoScalingRole.Arn
+      MinCapacity: !Ref TaskMinContainerCount
+      MaxCapacity: !Ref TaskMaxContainerCount
+
+  ScaleOutPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ScaleOutPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: 1
+            MetricIntervalLowerBound: 0
+        Cooldown: 60
+
+  ScaleInPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ScaleInPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: -1
+            MetricIntervalUpperBound: 0
+        Cooldown: 60
+
+  ScaleOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm to add capacity if CPU is high
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref Cluster
+        - Name: ServiceName
+          Value: !GetAtt FargateService.Name
+      ComparisonOperator: GreaterThanThreshold
+      Period: 60
+      EvaluationPeriods: !Ref DefaultServiceScaleEvaluationPeriods
+      Threshold: !Ref DefaultServiceCpuScaleOutThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+    DependsOn:
+      - ScaleOutPolicy
+
+  ScaleInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm to reduce capacity if container CPU is low
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref Cluster
+        - Name: ServiceName
+          Value: !GetAtt FargateService.Name
+      ComparisonOperator: LessThanThreshold
+      Period: 300
+      EvaluationPeriods: !Ref DefaultServiceScaleEvaluationPeriods
+      Threshold: !Ref DefaultServiceCpuScaleInThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ScaleInPolicy
+    DependsOn:
+      - ScaleInPolicy

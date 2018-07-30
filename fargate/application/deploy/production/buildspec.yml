@@ -1,0 +1,17 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - IMAGE_NAME="${REPOSITORY_URI}:$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | head -c 7)"
+  build:
+    commands:
+      # アプリケーションのビルドは個別にせず、検証された staging と同じものを利用する
+      - echo "do nothing."
+  post_build:
+    commands:
+      # 本番環境は Basic 認証を行わない
+      - printf '{"Parameters":{"ProjectID":"%s","DockerImage":"%s"}}' ${PROJECT_ID} ${IMAGE_NAME} > config.json
+
+artifacts:
+  files: config.json

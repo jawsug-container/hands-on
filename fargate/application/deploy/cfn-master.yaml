@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "A fargate application"
+
+Outputs:
+  Cluster:
+    Description: the ECS cluster name
+    Value: !Ref Cluster
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Basic Configurations
+        Parameters:
+          - ProjectID
+      - Label:
+          default: Application Configurations
+        Parameters:
+          - DockerImage
+          - BasicAuthUsername
+          - BasicAuthPassword
+          - ContainerCpu
+          - ContainerMemory
+
+Parameters:
+  ProjectID:
+    Type: String
+
+  DockerImage:
+    Type: String
+
+  BasicAuthUsername:
+    Type: String
+    Default: ""
+
+  BasicAuthPassword:
+    Type: String
+    Default: ""
+    NoEcho: true
+
+  ContainerCpu:
+    Type: Number
+    Description: Amount of CPU for the container
+    Default: 256
+    MinValue: 256
+    MaxValue: 4096
+    ConstraintDescription: "Value must be between 256 and 4096 - see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size"
+
+  ContainerMemory:
+    Type: Number
+    Description: Amount of memory for the container
+    Default: 512
+    MinValue: 512
+    MaxValue: 30720
+    ConstraintDescription: "Value must be between 512 and 30720 - see: https://aws.amazon.com/fargate/pricing/"
+
+Resources:
+
+  # Fargate のコントロールプレインとなる ECS クラスタ
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref AWS::StackName
+
+  # アプリケーションログの出力先
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 1
+
+  # Fargate の起動に必要な権限
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Path: /
+
+  # Fargate（アプリケーション）に付与する権限
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Path: /
+
+  # Fargate（アプリケーション）の定義
+  FargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref AWS::StackName
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: app
+          Image: !Ref DockerImage
+          Essential: true
+          PortMappings:
+            - ContainerPort: 80
+          Environment:
+            - Name: PROJECT_ID
+              Value: !Ref ProjectID
+            - Name: BASIC_AUTH_USER
+              Value: !Ref BasicAuthUsername
+            - Name: BASIC_AUTH_PASS
+              Value: !Ref BasicAuthPassword
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-stream-prefix: fargate
+      Cpu: !Ref ContainerCpu
+      Memory: !Ref ContainerMemory
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt TaskRole.Arn
+
+  # Fargate の外部インターフェイスの定義
+  FargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: 1
+      TaskDefinition: !Ref FargateTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub PublicAccess-${ProjectID}
+          Subnets:
+            - Fn::ImportValue: !Sub PublicSubnet1-${ProjectID}
+            - Fn::ImportValue: !Sub PublicSubnet2-${ProjectID}

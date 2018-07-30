@@ -1,27 +1,17 @@
-machine:
-  services:
-    - docker
-
-dependencies:
-  pre:
-    - pip install awscli
-    - docker info
-    - docker version
-  override:
-    - docker pull pottava/sphinx
-  post:
-    - aws configure set region ap-northeast-1
-
-test:
-  override:
-    - docker run -v $(pwd)/doc:/doc -w /doc pottava/sphinx /bin/sh -c "make clean && make html"
-
-deployment:
-  production:
-    branch: release
-    commands:
-      - aws s3 sync doc/_build/html/ s3://handson.jawsug-container.org/ --delete
-  staging:
-    branch: master
-    commands:
-      - aws s3 sync doc/_build/html/ s3://handson-staging.jawsug-container.org/ --delete
+version: 2
+jobs:
+  build:
+    docker:
+      - image: docker:18.06.0-ce-git
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --no-cache py-pip
+            pip install awscli
+      - run:
+          name: Run tests
+          command: |
+            docker run --rm -it -v $(pwd):/work -e IGNORE_PATH=/vendor/ supinf/shellcheck
