@@ -1,10 +1,12 @@
 # ハンズオン
 
+[![CircleCI](https://circleci.com/gh/jawsug-container/hands-on.svg?style=svg)](https://circleci.com/gh/jawsug-container/hands-on)
+
 [![jawsug/container](http://dockeri.co/image/jawsug/container)](https://hub.docker.com/r/jawsug/container/)
 
 Supported tags and respective `Dockerfile` links:
 
-・fargate-handson ([Dockerfile.fargate](https://github.com/jawsug-container/hands-on/blob/master/Dockerfile.fargate))  
+・fargate-handson ([fargate/Dockerfile](https://github.com/jawsug-container/hands-on/blob/master/fargate/Dockerfile))  
 
 ## 前提条件
 
