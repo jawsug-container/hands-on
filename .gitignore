@@ -3,3 +3,4 @@ env.sh
 .ipynb_checkpoints
 packaged.yaml
 vendor
+docker-compose.yml
