@@ -35,8 +35,9 @@ ADD application /root/notebook/application
 ADD infrastructure /root/notebook/infrastructure
 
 ADD notebooks_config/entrypoint.sh /
-RUN chmod +x /entrypoint.sh \
-    && mkdir /root/config
+RUN chmod +x /entrypoint.sh
+
+VOLUME /root/config
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["tini", "--", "jupyter", "notebook"]
